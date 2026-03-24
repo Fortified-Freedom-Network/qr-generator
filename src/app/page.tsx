@@ -86,6 +86,103 @@ function getShapePath(shape: ShapeType, s: number): string {
   }
 }
 
+/**
+ * Returns a shape path scaled up and centered so a QR code of size `s`
+ * fits comfortably inside with breathing room. The shape extends beyond
+ * the (0,0)-(s,s) bounds to avoid clipping finder patterns and data.
+ */
+function getClipShapePath(shape: ShapeType, s: number): string {
+  const cx = s / 2;
+  const cy = s / 2;
+
+  switch (shape) {
+    case "circle": {
+      // Inscribed square needs r >= s√2/2 ≈ 0.707s; use 0.76s for padding
+      const r = s * 0.76;
+      return `M${cx},${cy - r}A${r},${r},0,1,1,${cx},${cy + r}A${r},${r},0,1,1,${cx},${cy - r}Z`;
+    }
+    case "rounded-square": {
+      const pad = s * 0.05;
+      const x0 = -pad, y0 = -pad, x1 = s + pad, y1 = s + pad;
+      const w = x1 - x0;
+      const r = w * 0.12;
+      return `M${x0 + r},${y0}H${x1 - r}A${r},${r},0,0,1,${x1},${y0 + r}V${y1 - r}A${r},${r},0,0,1,${x1 - r},${y1}H${x0 + r}A${r},${r},0,0,1,${x0},${y1 - r}V${y0 + r}A${r},${r},0,0,1,${x0 + r},${y0}Z`;
+    }
+    case "heart": {
+      // Scale up 1.6x and center so QR sits in the belly of the heart
+      const k = 1.6;
+      const ks = s * k;
+      const ox = (s - ks) / 2;
+      const oy = (s - ks) / 2;
+      const h = (f: number) => ox + ks * f;
+      const v = (f: number) => oy + ks * f;
+      return [
+        `M${h(0.5)},${v(0.2)}`,
+        `C${h(0.5)},${v(0.08)},${h(0.35)},${v(0)},${h(0.2)},${v(0)}`,
+        `C${h(0.05)},${v(0)},${h(0)},${v(0.15)},${h(0)},${v(0.35)}`,
+        `C${h(0)},${v(0.6)},${h(0.5)},${v(0.9)},${h(0.5)},${v(1)}`,
+        `C${h(0.5)},${v(0.9)},${h(1)},${v(0.6)},${h(1)},${v(0.35)}`,
+        `C${h(1)},${v(0.15)},${h(0.95)},${v(0)},${h(0.8)},${v(0)}`,
+        `C${h(0.65)},${v(0)},${h(0.5)},${v(0.08)},${h(0.5)},${v(0.2)}Z`,
+      ].join("");
+    }
+    case "diamond": {
+      // Diamond half-diagonal must exceed s√2/2; use 0.78s for padding
+      const d = s * 0.78;
+      return `M${cx},${cy - d}L${cx + d},${cy}L${cx},${cy + d}L${cx - d},${cy}Z`;
+    }
+    case "star": {
+      // Large star so QR fits within the inner pentagon area
+      const outerR = s * 1.1;
+      const innerR = s * 0.45;
+      const pts: string[] = [];
+      for (let i = 0; i < 10; i++) {
+        const angle = ((i * 36 - 90) * Math.PI) / 180;
+        const r = i % 2 === 0 ? outerR : innerR;
+        pts.push(`${i === 0 ? "M" : "L"}${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`);
+      }
+      return pts.join("") + "Z";
+    }
+    case "christmas-tree": {
+      // Scale up 1.8x and center
+      const k = 1.8;
+      const ks = s * k;
+      const ox = (s - ks) / 2;
+      const oy = (s - ks) / 2;
+      const h = (f: number) => ox + ks * f;
+      const v = (f: number) => oy + ks * f;
+      return [
+        `M${h(0.5)},${v(0)}`,
+        `L${h(0.75)},${v(0.3)}H${h(0.65)}`,
+        `L${h(0.85)},${v(0.55)}H${h(0.72)}`,
+        `L${h(0.95)},${v(0.8)}H${h(0.6)}`,
+        `V${v(1)}H${h(0.4)}V${v(0.8)}`,
+        `H${h(0.05)}L${h(0.28)},${v(0.55)}`,
+        `H${h(0.15)}L${h(0.35)},${v(0.3)}`,
+        `H${h(0.25)}Z`,
+      ].join("");
+    }
+    case "shield": {
+      // Scale up 1.3x and center
+      const k = 1.3;
+      const ks = s * k;
+      const ox = (s - ks) / 2;
+      const oy = (s - ks) / 2;
+      const h = (f: number) => ox + ks * f;
+      const v = (f: number) => oy + ks * f;
+      return [
+        `M${h(0)},${v(0.05)}Q${h(0)},${v(0)},${h(0.05)},${v(0)}`,
+        `H${h(0.95)}Q${h(1)},${v(0)},${h(1)},${v(0.05)}`,
+        `V${v(0.55)}`,
+        `C${h(1)},${v(0.8)},${h(0.5)},${v(1)},${h(0.5)},${v(1)}`,
+        `C${h(0.5)},${v(1)},${h(0)},${v(0.8)},${h(0)},${v(0.55)}Z`,
+      ].join("");
+    }
+    default:
+      return `M0,0H${s}V${s}H0Z`;
+  }
+}
+
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -182,7 +279,7 @@ export default function Home() {
         const ctx = canvas.getContext("2d")!;
         ctx.drawImage(img, 0, 0, size, size);
         ctx.globalCompositeOperation = "destination-in";
-        ctx.fill(new Path2D(getShapePath(shape, size)));
+        ctx.fill(new Path2D(getClipShapePath(shape, size)));
         canvas.toBlob((masked) => {
           if (masked) downloadBlob(masked, "qr-code.png");
         }, "image/png");
@@ -201,7 +298,7 @@ export default function Home() {
       const clipPathEl = doc.createElementNS(ns, "clipPath");
       clipPathEl.setAttribute("id", "shape-clip");
       const pathEl = doc.createElementNS(ns, "path");
-      pathEl.setAttribute("d", getShapePath(shape, size));
+      pathEl.setAttribute("d", getClipShapePath(shape, size));
       clipPathEl.appendChild(pathEl);
       defs.appendChild(clipPathEl);
 
@@ -248,7 +345,7 @@ export default function Home() {
         <svg width="0" height="0" style={{ position: "absolute" }}>
           <defs>
             <clipPath id="qr-shape-clip" clipPathUnits="objectBoundingBox">
-              <path d={getShapePath(shape, 1)} />
+              <path d={getClipShapePath(shape, 1)} />
             </clipPath>
           </defs>
         </svg>
