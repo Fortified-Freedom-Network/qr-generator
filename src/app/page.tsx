@@ -202,6 +202,7 @@ export default function Home() {
   const [transparentBg, setTransparentBg] = useState(false);
   const [logo, setLogo] = useState<string | undefined>(undefined);
   const [logoFileName, setLogoFileName] = useState<string>("");
+  const [logoScale, setLogoScale] = useState(30);
 
   const qrRef = useRef<HTMLDivElement>(null);
   const qrInstance = useRef<QRCodeStyling | null>(null);
@@ -228,14 +229,14 @@ export default function Home() {
       imageOptions: {
         crossOrigin: "anonymous",
         margin: 10,
-        imageSize: 0.3,
+        imageSize: logoScale / 100,
       },
       image: logo,
       qrOptions: {
         errorCorrectionLevel: "H",
       },
     };
-  }, [data, fgColor, bgColor, size, dotStyle, transparentBg, logo]);
+  }, [data, fgColor, bgColor, size, dotStyle, transparentBg, logo, logoScale]);
 
   useEffect(() => {
     let cancelled = false;
@@ -535,6 +536,25 @@ export default function Home() {
               >
                 Remove logo
               </button>
+            )}
+            {logo && (
+              <label className="flex flex-col gap-1.5 mt-2">
+                <span className="text-sm text-muted">Logo Scale ({logoScale}%)</span>
+                <input
+                  type="range"
+                  min={10}
+                  max={40}
+                  step={1}
+                  value={logoScale}
+                  onChange={(e) => setLogoScale(Number(e.target.value))}
+                  className="accent-accent"
+                />
+                {logoScale >= 35 ? (
+                  <span className="text-xs text-red-500">May not scan reliably</span>
+                ) : logoScale >= 30 ? (
+                  <span className="text-xs text-yellow-500">May affect scannability</span>
+                ) : null}
+              </label>
             )}
           </div>
         </div>
