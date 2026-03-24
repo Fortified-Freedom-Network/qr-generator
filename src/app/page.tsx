@@ -202,7 +202,7 @@ export default function Home() {
   const [transparentBg, setTransparentBg] = useState(false);
   const [logo, setLogo] = useState<string | undefined>(undefined);
   const [logoFileName, setLogoFileName] = useState<string>("");
-  const [logoScale, setLogoScale] = useState(20);
+  const [logoScale, setLogoScale] = useState(30);
 
   const qrRef = useRef<HTMLDivElement>(null);
   const qrInstance = useRef<QRCodeStyling | null>(null);
