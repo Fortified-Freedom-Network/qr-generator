@@ -5,6 +5,7 @@ import type QRCodeStyling from "qr-code-styling";
 import type { Options as QROptions } from "qr-code-styling";
 
 type DotType = "square" | "dots" | "rounded" | "extra-rounded" | "classy" | "classy-rounded";
+type ShapeType = "square" | "circle" | "rounded-square" | "heart" | "diamond" | "star" | "christmas-tree" | "shield";
 
 const DOT_STYLES: { label: string; value: DotType }[] = [
   { label: "Square", value: "square" },
@@ -15,7 +16,84 @@ const DOT_STYLES: { label: string; value: DotType }[] = [
   { label: "Classy Rounded", value: "classy-rounded" },
 ];
 
+const SHAPES: { label: string; value: ShapeType }[] = [
+  { label: "Square", value: "square" },
+  { label: "Circle", value: "circle" },
+  { label: "Rounded Square", value: "rounded-square" },
+  { label: "Heart", value: "heart" },
+  { label: "Diamond", value: "diamond" },
+  { label: "Star", value: "star" },
+  { label: "Christmas Tree", value: "christmas-tree" },
+  { label: "Shield / Badge", value: "shield" },
+];
+
 const SIZES = [256, 512, 1024, 2048];
+
+function getShapePath(shape: ShapeType, s: number): string {
+  switch (shape) {
+    case "circle": {
+      const r = s / 2;
+      return `M${r},0A${r},${r},0,1,1,${r},${s}A${r},${r},0,1,1,${r},0Z`;
+    }
+    case "rounded-square": {
+      const r = s * 0.12;
+      return `M${r},0H${s - r}A${r},${r},0,0,1,${s},${r}V${s - r}A${r},${r},0,0,1,${s - r},${s}H${r}A${r},${r},0,0,1,0,${s - r}V${r}A${r},${r},0,0,1,${r},0Z`;
+    }
+    case "heart":
+      return [
+        `M${s * 0.5},${s * 0.2}`,
+        `C${s * 0.5},${s * 0.08},${s * 0.35},0,${s * 0.2},0`,
+        `C${s * 0.05},0,0,${s * 0.15},0,${s * 0.35}`,
+        `C0,${s * 0.6},${s * 0.5},${s * 0.9},${s * 0.5},${s}`,
+        `C${s * 0.5},${s * 0.9},${s},${s * 0.6},${s},${s * 0.35}`,
+        `C${s},${s * 0.15},${s * 0.95},0,${s * 0.8},0`,
+        `C${s * 0.65},0,${s * 0.5},${s * 0.08},${s * 0.5},${s * 0.2}Z`,
+      ].join("");
+    case "diamond":
+      return `M${s * 0.5},0L${s},${s * 0.5}L${s * 0.5},${s}L0,${s * 0.5}Z`;
+    case "star": {
+      const cx = s / 2, cy = s / 2;
+      const outerR = s / 2, innerR = s * 0.2;
+      const pts: string[] = [];
+      for (let i = 0; i < 10; i++) {
+        const angle = ((i * 36 - 90) * Math.PI) / 180;
+        const r = i % 2 === 0 ? outerR : innerR;
+        pts.push(`${i === 0 ? "M" : "L"}${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`);
+      }
+      return pts.join("") + "Z";
+    }
+    case "christmas-tree":
+      return [
+        `M${s * 0.5},0`,
+        `L${s * 0.75},${s * 0.3}H${s * 0.65}`,
+        `L${s * 0.85},${s * 0.55}H${s * 0.72}`,
+        `L${s * 0.95},${s * 0.8}H${s * 0.6}`,
+        `V${s}H${s * 0.4}V${s * 0.8}`,
+        `H${s * 0.05}L${s * 0.28},${s * 0.55}`,
+        `H${s * 0.15}L${s * 0.35},${s * 0.3}`,
+        `H${s * 0.25}Z`,
+      ].join("");
+    case "shield":
+      return [
+        `M0,${s * 0.05}Q0,0,${s * 0.05},0`,
+        `H${s * 0.95}Q${s},0,${s},${s * 0.05}`,
+        `V${s * 0.55}`,
+        `C${s},${s * 0.8},${s * 0.5},${s},${s * 0.5},${s}`,
+        `C${s * 0.5},${s},0,${s * 0.8},0,${s * 0.55}Z`,
+      ].join("");
+    default:
+      return `M0,0H${s}V${s}H0Z`;
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function Home() {
   const [data, setData] = useState("https://example.com");
@@ -23,6 +101,8 @@ export default function Home() {
   const [bgColor, setBgColor] = useState("#0a0a0a");
   const [size, setSize] = useState(512);
   const [dotStyle, setDotStyle] = useState<DotType>("square");
+  const [shape, setShape] = useState<ShapeType>("square");
+  const [transparentBg, setTransparentBg] = useState(false);
   const [logo, setLogo] = useState<string | undefined>(undefined);
   const [logoFileName, setLogoFileName] = useState<string>("");
 
@@ -40,7 +120,7 @@ export default function Home() {
         type: dotStyle,
       },
       backgroundOptions: {
-        color: bgColor,
+        color: transparentBg ? "transparent" : bgColor,
       },
       cornersSquareOptions: {
         color: fgColor,
@@ -58,7 +138,7 @@ export default function Home() {
         errorCorrectionLevel: "H",
       },
     };
-  }, [data, fgColor, bgColor, size, dotStyle, logo]);
+  }, [data, fgColor, bgColor, size, dotStyle, transparentBg, logo]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,11 +160,60 @@ export default function Home() {
     };
   }, [getQROptions]);
 
-  const handleDownload = (type: "png" | "svg") => {
-    qrInstance.current?.download({
-      extension: type,
-      name: "qr-code",
-    });
+  const handleDownload = async (type: "png" | "svg") => {
+    const instance = qrInstance.current;
+    if (!instance) return;
+
+    if (shape === "square") {
+      instance.download({ extension: type, name: "qr-code" });
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const blob: Blob | undefined = await (instance as any).getRawData(type);
+    if (!blob) return;
+
+    if (type === "png") {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, size, size);
+        ctx.globalCompositeOperation = "destination-in";
+        ctx.fill(new Path2D(getShapePath(shape, size)));
+        canvas.toBlob((masked) => {
+          if (masked) downloadBlob(masked, "qr-code.png");
+        }, "image/png");
+        URL.revokeObjectURL(img.src);
+      };
+      img.src = URL.createObjectURL(blob);
+    } else {
+      const text = await blob.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, "image/svg+xml");
+      const svg = doc.querySelector("svg");
+      if (!svg) return;
+
+      const ns = "http://www.w3.org/2000/svg";
+      const defs = doc.createElementNS(ns, "defs");
+      const clipPathEl = doc.createElementNS(ns, "clipPath");
+      clipPathEl.setAttribute("id", "shape-clip");
+      const pathEl = doc.createElementNS(ns, "path");
+      pathEl.setAttribute("d", getShapePath(shape, size));
+      clipPathEl.appendChild(pathEl);
+      defs.appendChild(clipPathEl);
+
+      const g = doc.createElementNS(ns, "g");
+      g.setAttribute("clip-path", "url(#shape-clip)");
+      while (svg.firstChild) g.appendChild(svg.firstChild);
+      svg.appendChild(defs);
+      svg.appendChild(g);
+
+      const svgString = new XMLSerializer().serializeToString(svg);
+      downloadBlob(new Blob([svgString], { type: "image/svg+xml" }), "qr-code.svg");
+    }
   };
 
   const handleLogoUpload = (file: File) => {
@@ -107,8 +236,24 @@ export default function Home() {
     e.preventDefault();
   };
 
+  const previewClipStyle: React.CSSProperties =
+    shape !== "square"
+      ? { clipPath: "url(#qr-shape-clip)" }
+      : {};
+
   return (
     <div className="flex min-h-screen flex-col">
+      {/* Hidden SVG for preview clip-path */}
+      {shape !== "square" && (
+        <svg width="0" height="0" style={{ position: "absolute" }}>
+          <defs>
+            <clipPath id="qr-shape-clip" clipPathUnits="objectBoundingBox">
+              <path d={getShapePath(shape, 1)} />
+            </clipPath>
+          </defs>
+        </svg>
+      )}
+
       {/* Header */}
       <header className="border-b border-card-border px-6 py-4">
         <h1 className="text-xl font-bold tracking-tight">FFN QR Generator</h1>
@@ -153,23 +298,34 @@ export default function Home() {
                 />
               </div>
             </label>
-            <label className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5">
               <span className="text-sm text-muted">Background</span>
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2${transparentBg ? " opacity-40 pointer-events-none" : ""}`}>
                 <input
                   type="color"
                   value={bgColor}
                   onChange={(e) => setBgColor(e.target.value)}
+                  disabled={transparentBg}
                   className="h-9 w-9 shrink-0 cursor-pointer rounded border border-card-border bg-transparent"
                 />
                 <input
                   type="text"
                   value={bgColor}
                   onChange={(e) => setBgColor(e.target.value)}
+                  disabled={transparentBg}
                   className="w-full rounded-lg border border-card-border bg-background px-2 py-1.5 text-xs font-mono text-foreground outline-none focus:border-accent"
                 />
               </div>
-            </label>
+              <label className="flex items-center gap-1.5 mt-0.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={transparentBg}
+                  onChange={(e) => setTransparentBg(e.target.checked)}
+                  className="accent-accent"
+                />
+                <span className="text-xs text-muted">Transparent</span>
+              </label>
+            </div>
           </div>
 
           {/* Size */}
@@ -210,6 +366,22 @@ export default function Home() {
               className="rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-accent"
             >
               {DOT_STYLES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Shape */}
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm text-muted">Shape</span>
+            <select
+              value={shape}
+              onChange={(e) => setShape(e.target.value as ShapeType)}
+              className="rounded-lg border border-card-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-accent"
+            >
+              {SHAPES.map((s) => (
                 <option key={s.value} value={s.value}>
                   {s.label}
                 </option>
@@ -280,7 +452,7 @@ export default function Home() {
             <div
               ref={qrRef}
               className="[&>canvas]:max-w-full [&>canvas]:h-auto [&>svg]:max-w-full [&>svg]:h-auto"
-              style={{ maxWidth: Math.min(size, 400) }}
+              style={{ maxWidth: Math.min(size, 400), ...previewClipStyle }}
             />
           </div>
 
