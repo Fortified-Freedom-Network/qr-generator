@@ -1,5 +1,10 @@
 FROM node:22-alpine AS build
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# PINNED. `pnpm@latest` is now 11.x; this repo's pnpm-lock.yaml is lockfileVersion 9.0. The drift
+# broke the build outright: pnpm 10 turned "package has a build script" into a hard error
+# (ERR_PNPM_IGNORED_BUILDS on sharp and unrs-resolver), so `pnpm install --frozen-lockfile` exits 1
+# and no image has been published since 2026-03-24. Floating the package manager means the build
+# silently changes underneath a pinned lockfile, which is the opposite of what the lockfile is for.
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
