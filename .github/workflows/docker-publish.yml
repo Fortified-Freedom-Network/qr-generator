@@ -19,6 +19,9 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Without this, a hung build burns to GitHub's 6-hour default before anyone hears about it --
+    # which is exactly what happened on 2026-08-24. A stall should fail loudly and early.
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,7 +50,16 @@ jobs:
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
+          # amd64 ONLY, deliberately. This was linux/amd64,linux/arm64 on a GitHub-hosted x86
+          # runner, so the arm64 leg was a Next.js compile under QEMU emulation. It did not
+          # merely run long: on 2026-08-24 it ran for SIX HOURS and was killed by GitHub's hard
+          # job ceiling, which means that build could never have published at all.
+          #
+          # Nothing consumes arm64. Every k3s node reports architecture=amd64 (checked
+          # 2026-08-24), and this image only ever runs in the cluster; local work is `pnpm dev`,
+          # not this image. If a multi-arch image is ever genuinely wanted, the fix is a NATIVE
+          # arm64 runner in a second job, never emulation.
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
